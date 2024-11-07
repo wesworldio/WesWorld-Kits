@@ -1,84 +1,82 @@
-#include <Adafruit_NeoMatrix.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_NeoPixel.h>
+#include <Adafruit_NeoMatrix.h>     // Include the Adafruit NeoMatrix library for controlling the LED matrix
+#include <Adafruit_GFX.h>           // Include the Adafruit GFX library, required for graphics functions
+#include <Adafruit_NeoPixel.h>      // Include the Adafruit NeoPixel library for handling LED color and brightness
 
-#define MIC_PIN         A0       // Microphone output connected to A0
-#define PIN             6        // NeoPixel data pin
-#define NUMPIXELS       40       // Number of LEDs on the shield
-#define BRIGHTNESS      50       // Set NeoPixel brightness
+#define MIC_PIN         A0          // Define the pin for the microphone input (A0 on the Arduino)
+#define PIN             6           // Define the data pin for the NeoPixel matrix
+#define NUMPIXELS       40          // Set the number of LEDs in the NeoPixel matrix (8x5 grid = 40 LEDs)
+#define BRIGHTNESS      50          // Set the brightness of the NeoPixels (range: 0 to 255)
 
-// Initialize NeoMatrix in row-major configuration, starting from the bottom-left
+// Initialize an 8x5 NeoMatrix grid, using the specified pin, orientation, and color order
 Adafruit_NeoMatrix matrix = Adafruit_NeoMatrix(8, 5, PIN,
-  NEO_MATRIX_TOP + NEO_MATRIX_LEFT + 
-  NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE,
-  NEO_GRB + NEO_KHZ800); 
+  NEO_MATRIX_TOP + NEO_MATRIX_LEFT +             // Start orientation from the top left of the matrix
+  NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE,      // Fill matrix in rows, with a progressive layout
+  NEO_GRB + NEO_KHZ800);                         // Set color order to GRB and 800kHz frequency for NeoPixels
   
-// Define colors for each row in the 5x8 grid (from bottom to top) with smoother gradient
+// Define a color for each row, creating a gradient effect (from blue at the bottom to red at the top)
 uint16_t rowColors[] = {
-  matrix.Color(0, 0, 255),      // Bottom row - Blue
-  matrix.Color(0, 128, 255),    // Light Blue
-  matrix.Color(0, 255, 128),    // Cyan
-  matrix.Color(0, 255, 0),      // Green
-  matrix.Color(255, 255, 0),    // Yellow
-  matrix.Color(255, 128, 0),    // Orange
-  matrix.Color(255, 64, 0),     // Orange-Red
-  matrix.Color(255, 0, 0)       // Top row - Red
+  matrix.Color(0, 0, 255),      // Color for bottom row (blue)
+  matrix.Color(0, 128, 255),    // Light blue for the next row up
+  matrix.Color(0, 255, 128),    // Cyan for the third row
+  matrix.Color(0, 255, 0),      // Green for the fourth row
+  matrix.Color(255, 255, 0),    // Yellow for the fifth row
+  matrix.Color(255, 128, 0),    // Orange for the sixth row
+  matrix.Color(255, 64, 0),     // Orange-red for the seventh row
+  matrix.Color(255, 0, 0)       // Red for the top row
 };
 
 void setup() {
-  matrix.begin();
-  matrix.setBrightness(BRIGHTNESS);
-  Serial.begin(9600);
- 
-  // Display all LEDs for 3 seconds
-  displaySoundLevel(8);
-  delay(3000); // Wait for 3 seconds
+  matrix.begin();                // Initialize the NeoMatrix
+  matrix.setBrightness(BRIGHTNESS); // Set the brightness of the LEDs
+  Serial.begin(9600);            // Start serial communication for debugging
 
-  matrix.fillScreen(0); // Clear the matrix after the 3-second delay
-  matrix.show();
+  displaySoundLevel(8);          // Light up all rows to show the gradient for 3 seconds
+  delay(3000);                   // Keep the display on for 3 seconds
+
+  matrix.fillScreen(0);          // Clear the LED matrix
+  matrix.show();                 // Display the cleared matrix
 }
 
 void loop() {
-  int soundLevel = getSmoothedSoundLevel();
+  int soundLevel = getSmoothedSoundLevel(); // Get an averaged sound level reading from the microphone
 
-  // Set a minimum threshold to ignore low ambient noise
-  if (soundLevel < 50) {
-    soundLevel = 0;
+  if (soundLevel < 50) {         // Set a minimum threshold to ignore background noise
+    soundLevel = 0;              // If below threshold, treat the sound level as 0
   }
 
-  // Map sound level to the number of rows to light up (0 to 8 rows)
-  int rowCount = map(soundLevel, 0, 600, 0, 8); // Adjust max sound level if needed
+  // Map the sound level (0 to 600) to the number of rows to light up (0 to 8)
+  int rowCount = map(soundLevel, 0, 600, 0, 8); // Max level of 600 may need adjusting
 
-  Serial.println(soundLevel); // For debugging
+  Serial.println(soundLevel);    // Output the sound level to the serial monitor for debugging
 
-  displaySoundLevel(rowCount);
-  delay(50);
+  displaySoundLevel(rowCount);   // Light up rows based on the sound level
+  delay(50);                     // Short delay to stabilize display
 }
 
-// Smooth sound level by averaging readings
+// Function to read the sound level and average it for smoothness
 int getSmoothedSoundLevel() {
-  int total = 0;
-  for (int i = 0; i < 10; i++) {
-    total += analogRead(MIC_PIN);
-    delay(1);
+  int total = 0;                 // Initialize the total for averaging
+  for (int i = 0; i < 10; i++) { // Take 10 readings for smoothing
+    total += analogRead(MIC_PIN); // Read the microphone level and add to total
+    delay(1);                    // Small delay between readings
   }
-  return total / 10;
+  return total / 10;             // Return average of 10 readings
 }
 
+// Function to display the sound level by lighting up rows on the matrix
 void displaySoundLevel(int rowCount) {
-  matrix.fillScreen(0); // Clear the matrix
+  matrix.fillScreen(0);          // Clear all LEDs on the matrix
 
-  // Light up each row based on the sound level, starting from the bottom
-  for (int row = 0; row < rowCount; row++) {
-    lightUpRow(row, rowColors[row]); // Light up each row in a specific color
+  for (int row = 0; row < rowCount; row++) { // Loop through each row up to rowCount
+    lightUpRow(row, rowColors[row]); // Use row-specific colors to create a gradient effect
   }
 
-  matrix.show();
+  matrix.show();                 // Update the display with the new lighting
 }
 
-// Function to light up an entire row with a specific color
+// Helper function to light up a single row with a specified color
 void lightUpRow(int row, uint16_t color) {
-  for (int col = 0; col < 5; col++) { // Each row has 5 LEDs
-    matrix.drawPixel(row, col, color); // Light up each pixel in the row
+  for (int col = 0; col < 5; col++) { // Loop through each column in the row (5 columns total)
+    matrix.drawPixel(row, col, color); // Set each LED in the row to the specified color
   }
 }
